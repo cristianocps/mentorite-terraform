@@ -43,10 +43,7 @@ data "template_file" "oci_config" {
   template = "${file("${path.module}/config")}"
   vars = {
     user_ocid=var.current_user_ocid
-    fingerprint=(
-      length(data.oci_identity_api_keys.dbconnection_api_key.api_keys) == 0
-      ? oci_identity_api_key.dbconnection_api_key[0].fingerprint
-      : data.oci_identity_api_keys.dbconnection_api_key.api_keys[0].fingerprint)
+    fingerprint=data.oci_identity_api_keys.dbconnection_api_key.api_keys[0].fingerprint
     tenancy_ocid=var.tenancy_ocid
     region=var.region
   }
@@ -62,8 +59,8 @@ data "template_file" "oci_deploy_config" {
   template = "${file("${path.module}/deploy.yaml.template")}"
   vars = {
     config_repo_name = local.config_repo_name
-    artifact_ocid = oci_generic_artifacts_content_artifact_by_path.update_container_instance_script.id
-    registry_ocid = oci_artifacts_repository.application_repository.id
+    # artifact_ocid = oci_generic_artifacts_content_artifact_by_path.update_container_instance_script.id
+    # registry_ocid = oci_artifacts_repository.application_repository.id
     artifact_path = local.deploy_artifact_path
     artifact_version = local.deploy_artifact_version
   }
@@ -86,11 +83,6 @@ data "template_file" "deploy_script" {
 
 data "oci_identity_api_keys" "dbconnection_api_key" {
   user_id = var.current_user_ocid
-}
-
-data "oci_devops_repository" "devops_repository" {
-  repository_id = var.repo_name
-  count = local.use-repository ? 1 : 0
 }
 
 data "oci_dns_zones" "zones" {

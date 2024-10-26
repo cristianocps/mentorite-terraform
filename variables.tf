@@ -60,7 +60,16 @@ variable "autonomous_database_admin_password" {
   type = string
   default = ""  
 }
-
+variable "autonomous_database_availabibility_domain" {
+  description = "Db Availability domain name"
+  type = string
+  default = "AD-1"
+}
+variable "autonomous_database_shape_name" {
+  description = "Db shape name"
+  type = string
+  default = "MySQL.VM.Standard.E3.1.8GB"
+}
 # New database
 variable "autonomous_database_display_name" {
   description = "Database display name"
@@ -98,30 +107,6 @@ variable "db_compartment" {
   description = "Compartment containing the autonomous database"
 }
 
-# OCI devops repository
-variable "repo_name" {
-  type = string
-  default = ""
-}
-
-# Branch
-variable "branch" {
-  type = string
-  default = ""
-}
-
-# Build command
-variable "build_command" {
-  type = string
-  default = ""
-}
-
-# Artifact location
-variable "artifact_location" {
-  type = string
-  default = ""
-}
-
 # Number of copies
 variable "nb_copies" {
   type = number
@@ -154,6 +139,11 @@ variable "zone" {
 variable "application_source" {
   type = string
   description = "source of the application: IMAGE, JAR/WAR, source code"
+}
+
+variable "project_id"{
+  type = string
+  description = "Id of the project"
 }
 
 variable "create_fqdn" {
@@ -424,7 +414,7 @@ variable "current_user_token" {
 
 locals {
   # application name with branch
-  application_name = (var.branch == "" ? var.application_name : "${var.application_name}-${var.branch}")
+  application_name =  var.application_name
   # region_key
   region_key = lower(data.oci_identity_regions.current_region.regions[0].key)
   # namespace
@@ -473,24 +463,15 @@ locals {
   bucket_name = "${local.application_name}-bucket"
   # name of the config repository
   config_repo_name = "${local.application_name}-config"
-  # url of the config repository
-  config_repo_url = (local.use-image 
-    ? ""
-    : replace(oci_devops_repository.config_repo[0].http_url, "https://", "https://${urlencode(local.login)}:${urlencode(local.app_auth_token)}@"))
+  
   # database OCID
-  database_ocid = (var.use_existing_database ? var.autonomous_database : oci_database_autonomous_database.database[0].id)
+  database_ocid = (var.use_existing_database ? var.autonomous_database : oci_mysql_mysql_db_system.database.id)
   # database username
   username = (var.use_existing_database ? var.autonomous_database_user : "ADMIN")
   # database password
   password = (var.use_existing_database ? var.autonomous_database_password : var.autonomous_database_admin_password)
   # connection string index to use 0 for mTLS 5 for TLS
   conn_url_index = 0
-  # database connection string
-  escaped_connection_url = (
-    var.use_existing_database 
-      ? replace(replace(data.oci_database_autonomous_database.autonomous_database.connection_strings[0].profiles[local.conn_url_index].value, "description= ", "description="), "\"", "\\\"")
-      : replace(replace(oci_database_autonomous_database.database[0].connection_strings[0].profiles[local.conn_url_index].value, "description= ", "description="), "\"", "\\\"")
-  )
   # FQDN
   domain_name = "${var.subdomain}.${var.zone}"
   # use repository (source code in devops)
@@ -500,14 +481,12 @@ locals {
   # use image (container image)
   use-image = (var.application_source == "IMAGE")
   # project_id
-  project_id = (local.use-image ? oci_devops_project.deploy_image_project[0].id : (local.use-repository ? data.oci_devops_repository.devops_repository[0].project_id : oci_devops_project.project[0].id))
+  project_id = var.project_id
   # filtered env variables
   env_variables_list = [
     for env in var.env_variables : 
-    (env == "CONN_URL" ? {name : "${var.connection_url_env}", value : local.driver_connection_url} :
     (env == "USERNAME" ? {name : "${var.username_env}", value : local.username} :
-    (env == "PASSWORD" ? {name : "${var.password_env}", value : local.password} :
-    (env == "WALLET" ? {name : "${var.tns_admin_env}", value : local.wallet_path} : null))))
+    (env == "PASSWORD" ? {name : "${var.password_env}", value : local.password} : null))
      if ((env == "CONN_URL" && var.use_connection_url_env) || 
          (env == "USERNAME" && var.use_username_env) ||
          (env == "PASSWORD" && var.use_password_env) ||

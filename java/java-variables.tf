@@ -42,14 +42,5 @@ variable "vm_options" {
 }
 
 locals {
-  # path to the wallet
-  wallet_path = "/opt/app/wallet"
-  # driver specific connection URL
-  driver_connection_url = (
-    var.use_existing_database 
-      ? "jdbc:oracle:thin:@${replace(data.oci_database_autonomous_database.autonomous_database.connection_strings[0].profiles[local.conn_url_index].value, "description= ", "description=")}"
-      : "jdbc:oracle:thin:@${replace(oci_database_autonomous_database.database[0].connection_strings[0].profiles[local.conn_url_index].value, "description= ", "description=")}"
-  )
-  # Connection URL environment variable
-  connection_url_env = "ENV ${var.connection_url_env}=jdbc:oracle:thin:@${local.escaped_connection_url}" 
+ 
 }
